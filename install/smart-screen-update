@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Updates the smart-screen app from the GitHub main branch archive,
+# rebuilds the Python deps, and restarts the service.
+set -euo pipefail
+
+APP_DIR="${SMART_SCREEN_APP_DIR:-/opt/5-inch-screen}"
+SERVICE_USER="${SMART_SCREEN_USER:-smartscreen}"
+REPO_URL="${SMART_SCREEN_REPO_URL:-https://github.com/ZiadAbdelati/5-inch-screen}"
+BRANCH="${SMART_SCREEN_REPO_BRANCH:-main}"
+
+ARCHIVE_URL="${REPO_URL%/}/archive/refs/heads/${BRANCH}.tar.gz"
+
+log() { printf '[update] %s\n' "$*"; }
+trap 'log "FAILED at line $LINENO"' ERR
+
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+log "fetching $ARCHIVE_URL"
+curl -fsSL "$ARCHIVE_URL" | tar -xz -C "$WORK_DIR" --strip-components=1
+
+log "preserving secrets + runtime config"
+if [[ -d "$APP_DIR/secrets" ]]; then
+  cp -a "$APP_DIR/secrets" "$WORK_DIR/secrets"
+fi
+if [[ -d "$APP_DIR/.venv" ]]; then
+  # venv takes a while to rebuild; keep it and just reinstall requirements
+  cp -a "$APP_DIR/.venv" "$WORK_DIR/.venv"
+fi
+
+log "swapping $APP_DIR"
+rm -rf "$APP_DIR.old"
+[[ -d "$APP_DIR" ]] && mv "$APP_DIR" "$APP_DIR.old"
+mv "$WORK_DIR" "$APP_DIR"
+trap - EXIT
+
+log "reinstalling Python deps"
+if [[ ! -d "$APP_DIR/.venv" ]]; then
+  python3 -m venv "$APP_DIR/.venv"
+fi
+"$APP_DIR/.venv/bin/pip" install --upgrade pip
+"$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
+
+log "refreshing helper scripts"
+install -m 755 "$APP_DIR/install/smart-screen-run"    /usr/local/bin/smart-screen-run
+install -m 755 "$APP_DIR/install/smart-screen-init"   /usr/local/bin/smart-screen-init
+install -m 755 "$APP_DIR/install/smart-screen-update" /usr/local/bin/smart-screen-update
+install -m 644 "$APP_DIR/install/smart-screen.service" /etc/systemd/system/smart-screen.service
+
+chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
+
+systemctl daemon-reload
+log "restarting service"
+systemctl restart smart-screen.service
+systemctl --no-pager --full status smart-screen.service || true
+
+log "cleaning up old install"
+rm -rf "$APP_DIR.old"
+
+log "update complete"

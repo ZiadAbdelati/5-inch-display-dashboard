@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Service entrypoint. Reads /etc/default/smart-screen and execs the daemon.
+set -euo pipefail
+
+CONFIG_FILE=/etc/default/smart-screen
+[[ -r "$CONFIG_FILE" ]] || {
+  echo "missing config: $CONFIG_FILE" >&2
+  echo "run 'smart-screen-init --url <url>' first" >&2
+  exit 1
+}
+
+# shellcheck disable=SC1090
+source "$CONFIG_FILE"
+
+: "${SMART_SCREEN_URL:?SMART_SCREEN_URL is required}"
+
+APP_DIR="${SMART_SCREEN_APP_DIR:-/opt/5-inch-screen}"
+PYTHON_BIN="$APP_DIR/.venv/bin/python"
+SCRIPT_PATH="$APP_DIR/src/screen_daemon.py"
+DEVICE="${SMART_SCREEN_DEVICE:-/dev/smart-screen}"
+INTERVAL="${SMART_SCREEN_INTERVAL:-30}"
+QUALITY="${SMART_SCREEN_QUALITY:-85}"
+
+args=(
+  "$SCRIPT_PATH"
+  "$SMART_SCREEN_URL"
+  --device "$DEVICE"
+  --interval "$INTERVAL"
+  --quality "$QUALITY"
+)
+
+if [[ -n "${SMART_SCREEN_HA_TOKEN_FILE:-}" ]]; then
+  args+=(--ha-token-file "$SMART_SCREEN_HA_TOKEN_FILE")
+fi
+
+if [[ -n "${SMART_SCREEN_AUTH_STATE:-}" ]]; then
+  args+=(--auth-state "$SMART_SCREEN_AUTH_STATE")
+fi
+
+if declare -p SMART_SCREEN_EXTRA_ARGS >/dev/null 2>&1; then
+  args+=("${SMART_SCREEN_EXTRA_ARGS[@]}")
+fi
+
+exec "$PYTHON_BIN" "${args[@]}"

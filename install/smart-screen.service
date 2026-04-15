@@ -1,0 +1,26 @@
+[Unit]
+Description=5-inch smart screen dashboard daemon
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/default/smart-screen
+
+[Service]
+Type=simple
+User=smartscreen
+Group=smartscreen
+SupplementaryGroups=dialout
+WorkingDirectory=/opt/5-inch-screen
+ExecStart=/usr/local/bin/smart-screen-run
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/5-inch-screen
+
+[Install]
+WantedBy=multi-user.target

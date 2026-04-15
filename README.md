@@ -43,10 +43,11 @@ playwright install chromium
 There is a Proxmox host-side installer at [`install/proxmox-lxc.sh`](install/proxmox-lxc.sh).
 It creates a privileged Debian LXC, passes through the USB serial device,
 enables `nesting`/`keyctl`, installs the app from the GitHub branch archive,
-and adds two helper commands inside the container:
+and adds three helper commands inside the container:
 
 - `smart-screen-init` writes the runtime config and secrets
 - `smart-screen-run` is the service entrypoint used by `smart-screen.service`
+- `smart-screen-update` pulls the latest `main` tarball and restarts the service
 
 Run it on the Proxmox host as root:
 
@@ -58,7 +59,7 @@ Useful overrides:
 
 ```bash
 CTID=120 \
-HOSTNAME=smart-screen \
+CT_HOSTNAME=smart-screen \
 USB_DEVICE=/dev/serial/by-id/usb-1a86_USB_CDC-Serial_20191234-if00 \
 bash install/proxmox-lxc.sh
 ```
@@ -78,6 +79,12 @@ initializer at it:
 
 ```bash
 smart-screen-init --url https://ha.example.com/dashboard --ha-token-file /root/ha_token
+```
+
+To update later:
+
+```bash
+pct exec 120 -- smart-screen-update
 ```
 
 On Linux, add your user to the `uucp` (or `dialout`) group so you can access

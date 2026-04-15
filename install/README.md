@@ -13,7 +13,7 @@ Useful overrides:
 
 ```bash
 CTID=120 \
-HOSTNAME=smart-screen \
+CT_HOSTNAME=smart-screen \
 STORAGE=local-lvm \
 TEMPLATE_STORAGE=local \
 USB_DEVICE=/dev/serial/by-id/usb-1a86_USB_CDC-Serial_20191234-if00 \
@@ -37,3 +37,30 @@ restarts it.
 The installer enables `nesting=1,keyctl=1` on the LXC to avoid the common
 systemd 252 warning on Proxmox and to give Chromium a less constrained
 container environment.
+
+## Updating later
+
+```bash
+pct exec <CTID> -- smart-screen-update
+```
+
+Downloads the latest `main` tarball, preserves `secrets/` and `.venv/`,
+reinstalls Python deps, refreshes the helper scripts and systemd unit, and
+restarts the service. The previous install is swapped to `/opt/5-inch-screen.old`
+briefly before being removed so a failed update leaves the old tree intact.
+
+## Helper scripts (installed inside the container)
+
+| Command | Purpose |
+| --- | --- |
+| `smart-screen-init` | Writes `/etc/default/smart-screen` and optional secrets; `--help` for flags |
+| `smart-screen-run` | Service entrypoint; sourced by the systemd unit, not called directly |
+| `smart-screen-update` | Pulls the latest `main` tarball and restarts the service |
+
+## Container bootstrap
+
+`proxmox-lxc.sh` runs `install/container-bootstrap.sh` inside the new LXC.
+That script installs system packages, creates the `smartscreen` service user
+(added to `dialout`), builds the Python virtualenv, installs Playwright with
+Chromium plus its system deps, and drops the helper scripts and systemd unit
+into place.
