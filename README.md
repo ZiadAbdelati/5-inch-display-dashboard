@@ -38,6 +38,47 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
+### Proxmox LXC
+
+There is a Proxmox host-side installer at [`install/proxmox-lxc.sh`](install/proxmox-lxc.sh).
+It creates a privileged Debian LXC, passes through the USB serial device,
+installs the app, and adds two helper commands inside the container:
+
+- `smart-screen-init` writes the runtime config and secrets
+- `smart-screen-run` is the service entrypoint used by `smart-screen.service`
+
+Run it on the Proxmox host as root:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/ZiadAbdelati/5-inch-screen/main/install/proxmox-lxc.sh)"
+```
+
+Useful overrides:
+
+```bash
+CTID=120 \
+HOSTNAME=smart-screen \
+USB_DEVICE=/dev/serial/by-id/usb-1a86_USB_CDC-Serial_20191234-if00 \
+bash install/proxmox-lxc.sh
+```
+
+If `USB_DEVICE` is not set, the installer tries to auto-detect the screen and
+prefers a stable `/dev/serial/by-id/...` path over `/dev/ttyACM0`.
+
+After install, enter the container and initialize the daemon:
+
+```bash
+pct enter 120
+smart-screen-init --url https://ha.example.com/dashboard --prompt-ha-token
+```
+
+If you already have a token file, copy it into the container and point the
+initializer at it:
+
+```bash
+smart-screen-init --url https://ha.example.com/dashboard --ha-token-file /root/ha_token
+```
+
 On Linux, add your user to the `uucp` (or `dialout`) group so you can access
 the serial device without sudo:
 
