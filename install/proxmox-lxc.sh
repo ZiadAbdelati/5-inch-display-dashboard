@@ -201,7 +201,7 @@ exec "\$PYTHON_BIN" "\${args[@]}"
 RUNEOF
 chmod 755 /usr/local/bin/smart-screen-run
 
-cat >/usr/local/bin/smart-screen-init <<'INITEOF'
+cat >/usr/local/bin/smart-screen-init <<INITEOF
 #!/usr/bin/env bash
 set -euo pipefail
 
