@@ -70,6 +70,21 @@ detect_usb_device() {
   return 1
 }
 
+archive_url_from_repo() {
+  local repo_url="$1"
+  local repo_branch="$2"
+  local repo_path
+
+  repo_path="$repo_url"
+  repo_path="${repo_path#https://github.com/}"
+  repo_path="${repo_path#http://github.com/}"
+  repo_path="${repo_path#git@github.com:}"
+  repo_path="${repo_path%.git}"
+
+  [[ "$repo_path" == */* ]] || return 1
+  printf 'https://codeload.github.com/%s/tar.gz/refs/heads/%s\n' "$repo_path" "$repo_branch"
+}
+
 find_template_name() {
   local pattern="${1:-debian-12-standard}"
   local template
@@ -108,17 +123,15 @@ append_lxc_line() {
 
 create_bootstrap_script() {
   local bootstrap_file="$1"
-  local repo_url="$2"
-  local repo_branch="$3"
-  local app_dir="$4"
+  local archive_url="$2"
+  local app_dir="$3"
 
   cat >"$bootstrap_file" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
 APP_DIR=$(printf '%q' "$app_dir")
-REPO_URL=$(printf '%q' "$repo_url")
-REPO_BRANCH=$(printf '%q' "$repo_branch")
+ARCHIVE_URL=$(printf '%q' "$archive_url")
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -127,13 +140,14 @@ apt-get install -y --no-install-recommends \
   bash \
   ca-certificates \
   curl \
-  git \
   python3 \
   python3-pip \
-  python3-venv
+  python3-venv \
+  tar
 
 rm -rf "\$APP_DIR"
-git clone --depth 1 --branch "\$REPO_BRANCH" "\$REPO_URL" "\$APP_DIR"
+mkdir -p "\$APP_DIR"
+curl -fsSL "\$ARCHIVE_URL" | tar -xz --strip-components=1 -C "\$APP_DIR"
 
 python3 -m venv "\$APP_DIR/.venv"
 "\$APP_DIR/.venv/bin/pip" install --upgrade pip
@@ -404,6 +418,7 @@ main() {
 
   local repo_url="${REPO_URL:-https://github.com/ZiadAbdelati/5-inch-screen.git}"
   local repo_branch="${REPO_BRANCH:-main}"
+  local archive_url="${ARCHIVE_URL:-$(archive_url_from_repo "$repo_url" "$repo_branch" || true)}"
   local app_dir="${APP_DIR:-/opt/5-inch-screen}"
   local ctid="${CTID:-$(pvesh get /cluster/nextid)}"
   local hostname="${HOSTNAME:-smart-screen}"
@@ -425,6 +440,7 @@ main() {
   [[ -n "$storage" ]] || fail "could not detect a rootfs storage; set STORAGE explicitly"
   [[ -n "$template_storage" ]] || fail "could not detect a template storage; set TEMPLATE_STORAGE explicitly"
   [[ -n "$usb_device" ]] || fail "could not detect the smart screen USB device; set USB_DEVICE explicitly"
+  [[ -n "$archive_url" ]] || fail "could not derive a GitHub archive URL; set ARCHIVE_URL explicitly"
 
   if pct status "$ctid" >/dev/null 2>&1; then
     fail "container ID $ctid already exists"
@@ -437,6 +453,7 @@ main() {
   pct create "$ctid" "${template_storage}:vztmpl/${template_name}" \
     --arch amd64 \
     --cores "$cores" \
+    --features nesting=1,keyctl=1 \
     --hostname "$hostname" \
     --memory "$memory_mb" \
     --net0 "name=eth0,bridge=${bridge},ip=dhcp" \
@@ -454,7 +471,7 @@ main() {
 
   temp_dir="$(mktemp -d)"
   bootstrap_file="$temp_dir/bootstrap-smart-screen.sh"
-  create_bootstrap_script "$bootstrap_file" "$repo_url" "$repo_branch" "$app_dir"
+  create_bootstrap_script "$bootstrap_file" "$archive_url" "$app_dir"
 
   pct push "$ctid" "$bootstrap_file" /root/bootstrap-smart-screen.sh >/dev/null
   log "bootstrapping application inside the container"

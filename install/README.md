@@ -33,3 +33,7 @@ smart-screen-init --url https://ha.example.com/dashboard --prompt-ha-token
 The initializer writes the token to `/opt/5-inch-screen/secrets/ha_token`,
 builds `/etc/default/smart-screen`, enables `smart-screen.service`, and
 restarts it.
+
+The installer enables `nesting=1,keyctl=1` on the LXC to avoid the common
+systemd 252 warning on Proxmox and to give Chromium a less constrained
+container environment.

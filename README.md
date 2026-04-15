@@ -42,7 +42,8 @@ playwright install chromium
 
 There is a Proxmox host-side installer at [`install/proxmox-lxc.sh`](install/proxmox-lxc.sh).
 It creates a privileged Debian LXC, passes through the USB serial device,
-installs the app, and adds two helper commands inside the container:
+enables `nesting`/`keyctl`, installs the app from the GitHub branch archive,
+and adds two helper commands inside the container:
 
 - `smart-screen-init` writes the runtime config and secrets
 - `smart-screen-run` is the service entrypoint used by `smart-screen.service`
