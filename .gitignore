@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# Secrets / auth
+*.token
+*.tokens
+ha_tokens*.json
+auth*.json
+auth_*.json
+*.env
+.env
+.env.*
+
+# Captures (large binary protocol dumps; not needed at runtime)
+captures/
+
+# Vendor software (copyrighted; not ours to redistribute)
+5 inch SmartMonitor V4/
+
+# Workspace / screenshots
+stock theme screenshots/
+reference_images/
+*.bak
+*.backup
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Playwright / Chromium caches
+.playwright/
+playwright-report/
+test-results/
+
+# Misc
+*.log
+*.tmp
