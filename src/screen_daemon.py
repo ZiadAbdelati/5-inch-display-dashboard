@@ -164,6 +164,7 @@ def make_browser_context(playwright, auth_state=None, ha_token=None, url=None,
     browser = playwright.chromium.launch()
     ctx_args = {
         "viewport": {"width": WIDTH, "height": HEIGHT},
+        "device_scale_factor": 2,
         "color_scheme": "dark",
     }
     if auth_state and Path(auth_state).exists():
