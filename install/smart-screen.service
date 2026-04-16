@@ -10,6 +10,11 @@ User=smartscreen
 Group=smartscreen
 SupplementaryGroups=dialout
 WorkingDirectory=/opt/5-inch-screen
+# Bind-mounted char devices inside the LXC come across mode 0000; fix perms
+# at service start. Runs as root (+) even though the daemon itself runs as
+# smartscreen. Uses -/ so a missing device doesn't block the service.
+ExecStartPre=+-/bin/chgrp dialout /dev/smart-screen
+ExecStartPre=+-/bin/chmod 660 /dev/smart-screen
 ExecStart=/usr/local/bin/smart-screen-run
 Restart=always
 RestartSec=10
