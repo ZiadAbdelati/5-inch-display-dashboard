@@ -138,7 +138,7 @@ def image_to_jpeg(img, quality=95):
     if img.mode != "RGB":
         img = img.convert("RGB")
     buf = BytesIO()
-    img.save(buf, "JPEG", quality=quality, subsampling=0)
+    img.save(buf, "JPEG", quality=quality, subsampling=0, optimize=True)
     return buf.getvalue()
 
 
@@ -164,7 +164,7 @@ def make_browser_context(playwright, auth_state=None, ha_token=None, url=None,
     browser = playwright.chromium.launch()
     ctx_args = {
         "viewport": {"width": WIDTH, "height": HEIGHT},
-        "device_scale_factor": 2,
+        "device_scale_factor": 3,
         "color_scheme": "dark",
     }
     if auth_state and Path(auth_state).exists():
