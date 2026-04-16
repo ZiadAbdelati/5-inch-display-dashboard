@@ -27,6 +27,7 @@ Options:
   --prompt-ha-token         Prompt securely for a Home Assistant token
   --auth-state PATH         Copy a Playwright auth-state JSON for cookie auth
   --set-session KEY=VALUE   Add sessionStorage item; may be repeated
+  --interactive             Prompt for URL, interval, quality, and HA token
   --start-now               Restart and enable the service (default)
   --no-start                Only write config, don't touch service
   --help                    Show this message
@@ -49,6 +50,7 @@ QUALITY=85
 HA_TOKEN=
 HA_TOKEN_FILE=
 PROMPT_TOKEN=0
+INTERACTIVE=0
 AUTH_STATE=
 START_NOW=1
 EXTRA_ARGS=()
@@ -62,6 +64,7 @@ while (($#)); do
     --ha-token)        require_value "$1" "${2:-}"; HA_TOKEN="$2"; shift 2 ;;
     --ha-token-file)   require_value "$1" "${2:-}"; HA_TOKEN_FILE="$2"; shift 2 ;;
     --prompt-ha-token) PROMPT_TOKEN=1; shift ;;
+    --interactive)     INTERACTIVE=1; shift ;;
     --auth-state)      require_value "$1" "${2:-}"; AUTH_STATE="$2"; shift 2 ;;
     --set-session)     require_value "$1" "${2:-}"; EXTRA_ARGS+=(--set-session "$2"); shift 2 ;;
     --start-now)       START_NOW=1; shift ;;
@@ -71,11 +74,27 @@ while (($#)); do
   esac
 done
 
+if [[ $INTERACTIVE -eq 1 ]]; then
+  if [[ -z "$URL" ]]; then
+    read -r -p "Dashboard URL: " URL
+  fi
+  read -r -p "Refresh interval in seconds [${INTERVAL}]: " input
+  [[ -n "$input" ]] && INTERVAL="$input"
+  read -r -p "JPEG quality 1-100 [${QUALITY}]: " input
+  [[ -n "$input" ]] && QUALITY="$input"
+  read -r -p "Serial device path [${DEVICE}]: " input
+  [[ -n "$input" ]] && DEVICE="$input"
+  if [[ -z "$HA_TOKEN" && -z "$HA_TOKEN_FILE" ]]; then
+    read -r -s -p "Home Assistant token (blank to skip): " HA_TOKEN
+    echo
+  fi
+fi
+
 [[ -n "$URL" ]] || { echo "--url is required" >&2; usage >&2; exit 1; }
 
 install -d -m 700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$SECRETS_DIR"
 
-if [[ $PROMPT_TOKEN -eq 1 ]]; then
+if [[ $PROMPT_TOKEN -eq 1 && -z "$HA_TOKEN" ]]; then
   read -r -s -p "Home Assistant long-lived token: " HA_TOKEN
   echo
 fi
@@ -119,7 +138,7 @@ fi
   echo ')'
 } > "$CONFIG_FILE"
 
-chmod 600 "$CONFIG_FILE"
+chmod 644 "$CONFIG_FILE"
 
 systemctl daemon-reload
 systemctl enable smart-screen.service >/dev/null

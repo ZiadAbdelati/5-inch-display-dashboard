@@ -30,6 +30,7 @@ log "setting up Python venv at $APP_DIR/.venv"
 python3 -m venv "$APP_DIR/.venv"
 "$APP_DIR/.venv/bin/pip" install --upgrade pip
 "$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
+export PLAYWRIGHT_BROWSERS_PATH="$APP_DIR/.playwright"
 "$APP_DIR/.venv/bin/python" -m playwright install --with-deps chromium
 
 # Secrets dir (owned by service user, 700 perms)

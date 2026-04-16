@@ -25,7 +25,7 @@ device (`/dev/ttyACM0`). The screen is recognized by the vendor software
 engineered by capturing serial traffic; see `src/parser.py` and
 `src/substitute_jpeg.py`.
 
-## Install
+## Quick start (bare metal)
 
 Requires Python 3.10+.
 
@@ -38,55 +38,6 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-### Proxmox LXC
-
-There is a Proxmox host-side installer at [`install/proxmox-lxc.sh`](install/proxmox-lxc.sh).
-It creates a privileged Debian LXC, passes through the USB serial device,
-enables `nesting`/`keyctl`, installs the app from the GitHub branch archive,
-and adds three helper commands inside the container:
-
-- `smart-screen-init` writes the runtime config and secrets
-- `smart-screen-run` is the service entrypoint used by `smart-screen.service`
-- `smart-screen-update` pulls the latest `main` tarball and restarts the service
-
-Run it on the Proxmox host as root:
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/ZiadAbdelati/5-inch-screen/main/install/proxmox-lxc.sh)"
-```
-
-Useful overrides:
-
-```bash
-CTID=120 \
-CT_HOSTNAME=smart-screen \
-USB_DEVICE=/dev/serial/by-id/usb-1a86_USB_CDC-Serial_20191234-if00 \
-bash install/proxmox-lxc.sh
-```
-
-If `USB_DEVICE` is not set, the installer tries to auto-detect the screen and
-prefers a stable `/dev/serial/by-id/...` path over `/dev/ttyACM0`.
-
-After install, enter the container and initialize the daemon:
-
-```bash
-pct enter 120
-smart-screen-init --url https://ha.example.com/dashboard --prompt-ha-token
-```
-
-If you already have a token file, copy it into the container and point the
-initializer at it:
-
-```bash
-smart-screen-init --url https://ha.example.com/dashboard --ha-token-file /root/ha_token
-```
-
-To update later:
-
-```bash
-pct exec 120 -- smart-screen-update
-```
-
 On Linux, add your user to the `uucp` (or `dialout`) group so you can access
 the serial device without sudo:
 
@@ -95,7 +46,133 @@ sudo usermod -aG uucp $USER   # Arch; use 'dialout' on Debian/Ubuntu
 # log out and back in
 ```
 
-## Usage
+## Proxmox LXC install
+
+A one-line installer creates a privileged Debian 12 LXC, passes through the
+USB serial device, installs the app, and sets up a systemd service.
+
+### 1. Create the container
+
+Run on the Proxmox host as root:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/ZiadAbdelati/5-inch-screen/main/install/proxmox-lxc.sh)"
+```
+
+The installer auto-detects the USB device (preferring a stable
+`/dev/serial/by-id/...` symlink) and the next free container ID. Override
+anything with environment variables:
+
+```bash
+CTID=120 \
+CT_HOSTNAME=smart-screen \
+USB_DEVICE=/dev/serial/by-id/usb-1a86_USB_CDC-Serial_20191234-if00 \
+STORAGE=local-lvm \
+BRIDGE=vmbr0 \
+bash install/proxmox-lxc.sh
+```
+
+Run `bash install/proxmox-lxc.sh --help` for the full list of overrides.
+
+If anything fails after the container is created, the installer automatically
+destroys it so you don't have to clean up a half-configured CT.
+
+### 2. Initialize the daemon
+
+Enter the container and run the interactive setup:
+
+```bash
+pct enter <CTID>
+smart-screen-init --interactive
+```
+
+This prompts for everything with defaults in brackets:
+
+```
+Dashboard URL: https://ha.example.com/dashboard
+Refresh interval in seconds [30]: 60
+JPEG quality 1-100 [85]:
+Serial device path [/dev/smart-screen]:
+Home Assistant token (blank to skip): <paste token>
+```
+
+Or pass everything as flags (useful for scripting):
+
+```bash
+smart-screen-init \
+  --url https://ha.example.com/dashboard \
+  --interval 60 \
+  --quality 85 \
+  --prompt-ha-token
+```
+
+The initializer writes `/etc/default/smart-screen`, saves the HA token to
+`/opt/5-inch-screen/secrets/ha_token` (mode 600), enables the systemd service,
+and starts it.
+
+#### Other token options
+
+```bash
+# Pass a token directly
+smart-screen-init --url URL --ha-token 'eyJ...'
+
+# Read token from a file
+smart-screen-init --url URL --ha-token-file /root/ha_token
+
+# Secure prompt at stdin
+smart-screen-init --url URL --prompt-ha-token
+```
+
+### 3. Verify it's running
+
+```bash
+systemctl status smart-screen.service
+journalctl -u smart-screen.service -f
+```
+
+### Updating
+
+From the Proxmox host:
+
+```bash
+pct exec <CTID> -- smart-screen-update
+```
+
+Downloads the latest `main` tarball, preserves `secrets/` and `.venv/`,
+reinstalls Python deps, refreshes the helper scripts and systemd unit, and
+restarts the service.
+
+### Changing settings
+
+Re-run `smart-screen-init` with the new values. It overwrites
+`/etc/default/smart-screen` and restarts the service:
+
+```bash
+smart-screen-init --url https://ha.example.com/dashboard --interval 60
+```
+
+Or use `--interactive` to be prompted for each setting again.
+
+### Helper commands (inside the container)
+
+| Command | Purpose |
+| --- | --- |
+| `smart-screen-init` | Writes runtime config and secrets; `--help` for all flags |
+| `smart-screen-run` | Service entrypoint (called by systemd, not directly) |
+| `smart-screen-update` | Pulls latest code from GitHub and restarts the service |
+
+### Container details
+
+- **Privileged** (`--unprivileged 0`) for USB serial passthrough without
+  uid/gid remapping
+- **nesting=1, keyctl=1** to avoid systemd 252 warnings and give Chromium a
+  less constrained environment
+- **cgroup allows** for char majors 166 (ttyACM) and 188 (ttyUSB)
+- Service runs as a dedicated `smartscreen` user in the `dialout` group
+- Systemd hardening: `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`,
+  `ProtectHome`, `ReadWritePaths=/opt/5-inch-screen`
+
+## Usage (manual / bare metal)
 
 ### Home Assistant
 
@@ -136,7 +213,7 @@ python screen_daemon.py http://homeassistant.local:8123/lovelace/0
 python screen_daemon.py ./my-background.png --interval 0   # one-shot
 ```
 
-### Full options
+### Full CLI options
 
 ```
 screen_daemon.py URL [options]
@@ -161,6 +238,14 @@ src/
   header_template.bin    Cached theme container header (auto-generated)
   synth_theme.py         Experimental: synthesize minimal themes
   test_*.py              Experiments from protocol reverse-engineering
+
+install/
+  proxmox-lxc.sh         Host-side Proxmox installer
+  container-bootstrap.sh Runs inside the LXC on first install
+  smart-screen-init      Config/secrets helper (--help for flags)
+  smart-screen-run       Service entrypoint (sourced by systemd unit)
+  smart-screen-update    Tarball-based updater
+  smart-screen.service   Systemd unit with hardening
 ```
 
 The `test_*.py` scripts require a capture file under `captures/` that is not
