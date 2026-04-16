@@ -27,6 +27,9 @@ if [[ -d "$APP_DIR/.venv" ]]; then
   # venv takes a while to rebuild; keep it and just reinstall requirements
   cp -a "$APP_DIR/.venv" "$WORK_DIR/.venv"
 fi
+if [[ -d "$APP_DIR/.playwright" ]]; then
+  cp -a "$APP_DIR/.playwright" "$WORK_DIR/.playwright"
+fi
 
 log "swapping $APP_DIR"
 rm -rf "$APP_DIR.old"
@@ -40,6 +43,10 @@ if [[ ! -d "$APP_DIR/.venv" ]]; then
 fi
 "$APP_DIR/.venv/bin/pip" install --upgrade pip
 "$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
+
+log "ensuring Playwright Chromium is present"
+export PLAYWRIGHT_BROWSERS_PATH="$APP_DIR/.playwright"
+"$APP_DIR/.venv/bin/python" -m playwright install chromium
 
 log "refreshing helper scripts"
 install -m 755 "$APP_DIR/install/smart-screen-run"    /usr/local/bin/smart-screen-run
