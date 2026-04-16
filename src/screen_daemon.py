@@ -131,7 +131,7 @@ def screenshot_url(url, page):
     return img
 
 
-def image_to_jpeg(img, quality=85):
+def image_to_jpeg(img, quality=95):
     """Convert a PIL Image to 800x480 JPEG bytes."""
     if img.size != (WIDTH, HEIGHT):
         img = img.resize((WIDTH, HEIGHT), Image.LANCZOS)
@@ -278,8 +278,8 @@ def main():
     parser.add_argument(
         "--quality",
         type=int,
-        default=85,
-        help="JPEG quality 1-100 (default: 85)",
+        default=95,
+        help="JPEG quality 1-100 (default: 95)",
     )
     parser.add_argument(
         "--auth-state",

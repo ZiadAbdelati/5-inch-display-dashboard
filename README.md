@@ -220,7 +220,7 @@ screen_daemon.py URL [options]
 
   --device PATH         Serial device (default /dev/ttyACM0)
   --interval SECONDS    Refresh interval; 0 = one-shot (default 5)
-  --quality 1..100      JPEG quality (default 85)
+  --quality 1..100      JPEG quality (default 95)
   --ha-token TOKEN      Home Assistant long-lived token (or $HA_TOKEN)
   --ha-token-file PATH  Read token from file
   --auth-state PATH     Browser state JSON (for cookie auth)

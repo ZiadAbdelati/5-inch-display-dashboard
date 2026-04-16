@@ -46,7 +46,7 @@ require_value() {
 URL=
 DEVICE=/dev/smart-screen
 INTERVAL=30
-QUALITY=85
+QUALITY=95
 HA_TOKEN=
 HA_TOKEN_FILE=
 PROMPT_TOKEN=0
